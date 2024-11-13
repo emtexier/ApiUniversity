@@ -4,13 +4,14 @@ public class DetailedEnrollmentDTO
 {
     public int Id { get; set; }
     public Grade Grade { get; set; }
-    public Student Student { get; set; } = null!;
-    public Course Course { get; set; } = null!;
+    public StudentDTO Student { get; set; } = null!;
+    public CourseDTO Course { get; set; } = null!;
 
     public DetailedEnrollmentDTO(Enrollment enrollment) {
         Id = enrollment.Id;
         Grade = enrollment.Grade;
-        Student = enrollment.Student;
-        Course = enrollment.Course;
+
+        Student = new StudentDTO(enrollment.Student);
+        Course = new CourseDTO(enrollment.Course);
     }
 }

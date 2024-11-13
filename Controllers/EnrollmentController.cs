@@ -5,7 +5,7 @@ using ApiUniversity.Models;
 namespace ApiUniversity.Controllers;
 
 [ApiController]
-[Route("api/student")]
+[Route("api/enrollment")]
 public class EnrollmentController : ControllerBase
 {
     private readonly ApiUniversityContext _context;
@@ -16,7 +16,7 @@ public class EnrollmentController : ControllerBase
     }
 
     // GET: api/student/2
-    [HttpGet("{id}")]
+    /*[HttpGet("{id}")]
     public async Task<ActionResult<DetailedEnrollmentDTO>> GetEnrollment(int id)
     {
         var enrollment = await _context.Enrollments.SingleOrDefaultAsync(t => t.Id == id);
@@ -27,7 +27,7 @@ public class EnrollmentController : ControllerBase
         }
 
         return new DetailedEnrollmentDTO(enrollment);
-    }
+    }*/
 
     // POST: api/student
     [HttpPost]
@@ -43,16 +43,16 @@ public class EnrollmentController : ControllerBase
 
     // PUT: api/student/2
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutStudent(int id, StudentDTO studentDTO)
+    public async Task<IActionResult> PutEnrollment(int id, DetailedEnrollmentDTO enrollmentDTO)
     {
-        if (id != studentDTO.Id)
+        if (id != enrollmentDTO.Id)
         {
             return BadRequest();
         }
 
-        Student student = new(studentDTO);
+        Enrollment enrollment = new(enrollmentDTO);
 
-        _context.Entry(student).State = EntityState.Modified;
+        _context.Entry(enrollment).State = EntityState.Modified;
 
         try
         {
@@ -60,7 +60,7 @@ public class EnrollmentController : ControllerBase
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!_context.Courses.Any(m => m.Id == id))
+            if (!_context.Enrollments.Any(m => m.Id == id))
                 return NotFound();
             else
                 throw;
@@ -71,18 +71,70 @@ public class EnrollmentController : ControllerBase
 
     // DELETE: api/student/2
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteStudent(int id)
+    public async Task<IActionResult> DeleteEnrollment(int id)
     {
-        var student = await _context.Students.FindAsync(id);
+        var enrollment = await _context.Enrollments.FindAsync(id);
 
-        if (student == null)
+        if (enrollment == null)
         {
             return NotFound();
         }
 
-        _context.Students.Remove(student);
+        _context.Enrollments.Remove(enrollment);
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+
+    // GET: api/enrollment/{id}
+    [HttpGet("{id}")]
+    public async Task<ActionResult<DetailedEnrollmentDTO>> GetEnrollment(int id)
+    {
+        // Charger l’inscription avec les données de l’étudiant et du cours associés
+        var enrollment = await _context.Enrollments
+            .Include(e => e.Student)
+            .Include(e => e.Course)
+            .SingleOrDefaultAsync(e => e.Id == id);
+
+        if (enrollment == null)
+        {
+            return NotFound();
+        }
+
+        return new DetailedEnrollmentDTO(enrollment);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<DetailedEnrollmentDTO>> CreateEnrollment(EnrollmentDTO enrollmentDto)
+    {
+        // Vérifier que l'étudiant et le cours existent dans la base de données
+        var student = await _context.Students.FindAsync(enrollmentDto.StudentId);
+        var course = await _context.Courses.FindAsync(enrollmentDto.CourseId);
+
+        if (student == null || course == null)
+        {
+            return BadRequest("Invalid StudentId or CourseId.");
+        }
+
+        // Créer une nouvelle instance d'Enrollment à partir de l'objet DTO
+        var enrollment = new Enrollment
+        {
+            StudentId = enrollmentDto.StudentId,
+            CourseId = enrollmentDto.CourseId,
+            Grade = enrollmentDto.Grade
+        };
+
+        // Ajouter l'inscription à la base de données et sauvegarder
+        _context.Enrollments.Add(enrollment);
+        await _context.SaveChangesAsync();
+
+        // Charger l'inscription avec les détails nécessaires pour DetailedEnrollmentDTO
+        await _context.Entry(enrollment).Reference(e => e.Student).LoadAsync();
+        await _context.Entry(enrollment).Reference(e => e.Course).LoadAsync();
+
+        // Retourner l'objet DetailedEnrollmentDTO
+        var detailedEnrollmentDto = new DetailedEnrollmentDTO(enrollment);
+        return CreatedAtAction(nameof(CreateEnrollment), new { id = detailedEnrollmentDto.Id }, detailedEnrollmentDto);
     }
 }
